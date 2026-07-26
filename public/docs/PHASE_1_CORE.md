@@ -82,7 +82,7 @@ Lumiris-System/
     │   └── accounts.lua                    ← Transferts atomiques, helpers inter-personnages
     │
     ├── Vehicle_API/
-    │   ├── vehicle_api.lua                 ← Données véhicules BDD (propriété, plaque, metadata)
+    │   ├── vehicle_api.lua                 ← Données véhicules BDD (propriété, plaque, fausse plaque, metadata)
     │   └── vehicle_api_client.lua          ← Spawn physique, suppression, NPC, Blips
     │
     ├── Inventory_API/
@@ -561,6 +561,32 @@ local vehicles = Framework.VehicleAPI.GetCharacterVehicles(charId)
 local plate = Framework.VehicleAPI.GeneratePlate()
 ```
 
+**Fausses plaques :**
+
+Une fausse plaque remplace **temporairement** la plaque du véhicule : `lumiris_vehicles.plate` porte la fausse plaque le temps de la pose et la vraie plaque est conservée dans la table dédiée `lumiris_vehicle_fake_plates`. La présence d'une ligne dans cette table = « une fausse plaque est posée ». Une seule fausse plaque active par véhicule.
+
+- Pose et retrait sont **atomiques** (`Database.Transaction` : insert/delete + update de la plaque)
+- La fausse plaque doit être libre dans `lumiris_vehicles` **et** dans `lumiris_vehicle_fake_plates`
+- `expires_at` permet une pose temporaire ; une boucle serveur (30s) restaure automatiquement les plaques expirées
+- `GetVehicleData()` accepte la vraie comme la fausse plaque et retourne en plus `real_plate` et `has_fake_plate`
+
+```lua
+-- Poser une fausse plaque (nil = plaque générée, 1800 = durée en secondes, nil = permanent)
+local fake = Framework.ApplyFakePlate("ABC123", nil, charId, 1800, source)
+
+-- Retirer la fausse plaque et restaurer la vraie (accepte les deux plaques)
+Framework.RemoveFakePlate(fake, source)  -- retourne "ABC123"
+
+-- Lecture
+Framework.GetRealPlate("XYZ789")                        -- "ABC123" si XYZ789 est une fausse plaque
+Framework.VehicleAPI.GetDisplayedPlate("ABC123")        -- "XYZ789" (plaque posée actuellement)
+Framework.VehicleAPI.HasFakePlate("ABC123")             -- true
+Framework.VehicleAPI.IsFakePlate("XYZ789")              -- true
+Framework.VehicleAPI.GetFakePlateData("ABC123")         -- { real_plate, fake_plate, char_id, applied_at, expires_at }
+Framework.VehicleAPI.GenerateFakePlate()                -- plaque libre
+Framework.VehicleAPI.CleanupExpiredFakePlates()         -- number (restaurées)
+```
+
 **Client — spawn physique :**
 ```lua
 -- Spawn (asynchrone, avec chargement du modèle et timeout)
@@ -752,6 +778,22 @@ CREATE TABLE IF NOT EXISTS `lumiris_vehicles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
+#### `lumiris_vehicle_fake_plates`
+```sql
+CREATE TABLE IF NOT EXISTS `lumiris_vehicle_fake_plates` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `real_plate` VARCHAR(8) NOT NULL, -- Vraie plaque conservée pendant la pose
+    `fake_plate` VARCHAR(8) NOT NULL, -- Plaque posée sur le véhicule
+    `char_id` INT UNSIGNED DEFAULT NULL, -- Personnage ayant posé la plaque
+    `applied_at` BIGINT NOT NULL,
+    `expires_at` BIGINT DEFAULT NULL, -- NULL = permanent
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_real_plate` (`real_plate`), -- Une seule fausse plaque par véhicule
+    UNIQUE KEY `uq_fake_plate` (`fake_plate`),
+    INDEX `idx_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
 ---
 
 ## 5. API publique complète
@@ -936,6 +978,17 @@ Framework.VehicleAPI.SetStored(plate, stored)           -- boolean
 Framework.VehicleAPI.GetCharacterVehicles(charId)       -- table[]
 Framework.VehicleAPI.GeneratePlate()                    -- string
 
+-- Fausses plaques
+Framework.ApplyFakePlate(plate, fakePlate, charId, duration, source) -- string | nil
+Framework.RemoveFakePlate(plate, source)                -- string | nil
+Framework.GetRealPlate(plate)                           -- string | nil
+Framework.VehicleAPI.GetDisplayedPlate(plate)           -- string | nil
+Framework.VehicleAPI.GetFakePlateData(plate)            -- table | nil
+Framework.VehicleAPI.HasFakePlate(plate)                -- boolean
+Framework.VehicleAPI.IsFakePlate(plate)                 -- boolean
+Framework.VehicleAPI.GenerateFakePlate()                -- string | nil
+Framework.VehicleAPI.CleanupExpiredFakePlates()         -- number
+
 -- Client
 Framework.SpawnVehicle(model, coords, heading, cb)
 Framework.DeleteVehicle(entity)
@@ -982,6 +1035,8 @@ Ces événements sont émis par le Core. Les modules s'y abonnent via `Framework
 | `lumiris:vehicle:deleted` | Serveur | plate | Véhicule supprimé de la BDD |
 | `lumiris:vehicle:ownerChanged` | Serveur | plate, charId | Propriétaire transféré |
 | `lumiris:vehicle:storedChanged` | Serveur | plate, stored | Statut garage modifié |
+| `lumiris:vehicle:fakePlateApplied` | Serveur | realPlate, fakePlate, charId | Fausse plaque posée |
+| `lumiris:vehicle:fakePlateRemoved` | Serveur | realPlate, fakePlate | Fausse plaque retirée |
 | `lumiris:inventory:providerReady` | Serveur | — | Module Inventaire enregistré et prêt |
 | `lumiris:module:registered` | Serveur | moduleName, moduleData | Module enregistré dans le Versioning |
 | `lumiris:locales:sync` | Client | lang, strings | Chaînes de locale envoyées au client |
@@ -1021,7 +1076,7 @@ lumiris-modules       → Liste tous les modules enregistrés avec leur version
 - [x] `Core/Players/sessions.lua` — durée de session, playtime, auto-save
 - [x] `Core/Players/players_client.lua` — signal clientReady, données locales
 - [x] `Core/Accounts/accounts.lua` — transferts atomiques, helpers inter-personnages
-- [x] `Core/Vehicle_API/vehicle_api.lua` — données BDD véhicules, propriété, plaque
+- [x] `Core/Vehicle_API/vehicle_api.lua` — données BDD véhicules, propriété, plaque, fausses plaques
 - [x] `Core/Vehicle_API/vehicle_api_client.lua` — spawn, suppression, NPC, blips
 - [x] `Core/Inventory_API/inventory_api.lua` — pont contractuel + provider pattern
 - [x] `Core/main.lua` — migrations SQL + signal Core:ready + commandes console
