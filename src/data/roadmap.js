@@ -40,6 +40,7 @@ const DEFAULT_ROADMAP = [
       "Permissions",
       "Config centralisée",
       "Cache",
+      "API : Inventaire + Vehicule",
     ],
   },
   {
@@ -123,6 +124,7 @@ const DEFAULT_ROADMAP = [
       "Trafic d'armes",
       "Blanchiment",
       "Cambriolages",
+      "Fausse Plaque",
     ],
   },
   {
