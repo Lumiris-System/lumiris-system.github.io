@@ -118,7 +118,7 @@ Module Spawn — sélection du spawn / multi-character
 
 ### Conventions générales
 
-- Toutes les tables sont préfixées par `aurora_`
+- Toutes les tables sont préfixées par `lumiris_`
 - Les identifiants utilisent `VARCHAR(60)` (format licence FiveM)
 - Les timestamps utilisent `BIGINT` (Unix ms) pour la cohérence cross-timezone
 - Les données JSON complexes sont stockées en `LONGTEXT` avec validation applicative
@@ -128,7 +128,7 @@ Module Spawn — sélection du spawn / multi-character
 
 #### `aurora_players`
 ```sql
-CREATE TABLE IF NOT EXISTS `aurora_players` (
+CREATE TABLE IF NOT EXISTS `lumiris_players` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `license` VARCHAR(60) NOT NULL, -- Identifiant principal
     `name` VARCHAR(100) NOT NULL,
@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS `aurora_players` (
 
 #### `aurora_characters`
 ```sql
-CREATE TABLE IF NOT EXISTS `aurora_characters` (
+CREATE TABLE IF NOT EXISTS `lumiris_characters` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `player_id` INT UNSIGNED NOT NULL,
     `slot` TINYINT NOT NULL DEFAULT 1, -- Multi-character
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS `aurora_characters` (
 
 #### `aurora_accounts`
 ```sql
-CREATE TABLE IF NOT EXISTS `aurora_accounts` (
+CREATE TABLE IF NOT EXISTS `lumiris_accounts` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `character_id` INT UNSIGNED NOT NULL,
     `account_type` VARCHAR(30) NOT NULL DEFAULT 'cash', -- cash | bank | dirty | custom
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS `aurora_accounts` (
 
 #### `aurora_permissions`
 ```sql
-CREATE TABLE IF NOT EXISTS `aurora_permissions` (
+CREATE TABLE IF NOT EXISTS `lumiris_permissions` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `player_id` INT UNSIGNED NOT NULL,
     `grade` VARCHAR(30) NOT NULL DEFAULT 'user', -- user | staff | developer | console
@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS `aurora_permissions` (
 
 #### `aurora_logs`
 ```sql
-CREATE TABLE IF NOT EXISTS `aurora_logs` (
+CREATE TABLE IF NOT EXISTS `lumiris_logs` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `level` ENUM('info','warn','error','debug') NOT NULL DEFAULT 'info',
     `source` VARCHAR(60) NOT NULL, -- Nom du module source
@@ -233,7 +233,7 @@ Ces tables sont gérées par leurs modules respectifs et ne font pas partie du C
 
 #### `aurora_items` *(module Inventaire)*
 ```sql
-CREATE TABLE IF NOT EXISTS `aurora_items` (
+CREATE TABLE IF NOT EXISTS `lumiris_items` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(60) NOT NULL, -- Identifiant unique de l'item
     `label` VARCHAR(100) NOT NULL,
@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS `aurora_items` (
 
 #### `aurora_inventory` *(module Inventaire)*
 ```sql
-CREATE TABLE IF NOT EXISTS `aurora_inventory` (
+CREATE TABLE IF NOT EXISTS `lumiris_inventory` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `owner_type` ENUM('character','vehicle','stash','shop') NOT NULL,
     `owner_id` VARCHAR(60) NOT NULL,
